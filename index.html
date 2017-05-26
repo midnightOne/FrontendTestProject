@@ -1,0 +1,32 @@
+﻿<!DOCTYPE html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+    <title>Code test project</title>
+
+    <script src="scripts/pixi.min.js"></script>
+    
+</head>
+<body>
+<div class="host">
+        <div class="top_content">
+            <div >
+                <h2 class="label-float" id="area-label">0000</h2>
+                <h2 class="label-float" id="shapeCount-label">0000</h2>
+            </div>
+        </div>
+        <div class="display" id="display">
+        </div>
+        <div class="bottom_content">
+            <div>
+                <label>Gravity</label>
+                <input type="number" step="0.1" name="gravity-input" id="gravity-input" value="0.5" />
+                <label style="margin-left:20px">Shapes/sec.</label>
+                <input type="number"  name="generationSpeed-input" id="generationSpeed-input" value="1" />
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="scripts/main.js"></script>
+    <script type="text/javascript" src="scripts/areaCounter.js"></script>
+</body>
+</html>
