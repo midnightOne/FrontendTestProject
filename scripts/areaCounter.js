@@ -4,13 +4,13 @@ var label;
 
 function setupCounter(){
 	console.log("Area Counter initializing...");
-	setInterval(update, 100) ; 						// Незачем обновлять чаще, чем 10 раз в секунду
+	setInterval(update, 100) ; 						// No need to update > 10 times/sec
 	label = document.getElementById("area-label");
 	window.removeEventListener("load", setupCounter);
 }
 
 function checkForCanvas(){
-	var canvases = document.getElementsByTagName("canvas");
+	var canvases = document.getElementsByTagName("canvas"); // Look for canvases until atleast one is found
 
 	if(canvases.length > 0){
 		console.log("Canvas found");
@@ -35,7 +35,7 @@ function update(){
 	}
 }
 
-// Считаем количество непрозрачных пикселей (только контекст2д)
+// Here we count the number of opaque pixels (only context2d)
 function alphaRatio(ctx) {
   var alphaPixels = 0;
 
@@ -47,6 +47,6 @@ function alphaRatio(ctx) {
   return { area: alphaPixels, ratio: Math.round((alphaPixels / (ctx.canvas.width * ctx.canvas.height))*100)};
 }
 
-window.addEventListener("load", setupCounter);
+window.addEventListener("load", setupCounter); // we can only have one 'onload'
 
 //window.onload = setupCounter;
