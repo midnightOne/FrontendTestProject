@@ -2,6 +2,10 @@ var canvas;
 var context;
 var label;
 
+/*
+I made pixel area counter into a separate "component" since it is more reusable that way.
+*/
+
 function setupCounter(){
 	console.log("Area Counter initializing...");
 	setInterval(update, 100) ; 						// No need to update > 10 times/sec
@@ -26,10 +30,15 @@ function update(){
 		checkForCanvas();
 	} else {
 		if(context != null){
-			var temp = alphaRatio(context)
-			label.innerHTML = "Area occupied: " + temp.area + "px^2 ( " + temp.ratio + "% )";
+			var temp = alphaRatio(context);
+			if(label){
+				label.innerHTML = "Area occupied: " + temp.area + "px^2 ( " + temp.ratio + "% )";
+			}else {
+				console.log("Area occupied: " + temp.area + "px^2 ( " + temp.ratio + "% )"); // alternative - no additional html elements needed
+			}
+			
 		} else {
-
+			console.log("2D Context is not found.")
 		}
 		
 	}
@@ -49,4 +58,3 @@ function alphaRatio(ctx) {
 
 window.addEventListener("load", setupCounter); // we can only have one 'onload'
 
-//window.onload = setupCounter;

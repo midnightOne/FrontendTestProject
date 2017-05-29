@@ -61,7 +61,7 @@ var AppModel = function (){
 	this.lastShapeSpawn = Date.now();
 
 	this.shapeSpawnEvent = new MyEvent(this);
-	this.shapeRemoveEvent = new MyEvent(this);
+	this.shapeRemoveEvent = new MyEvent(this); // implemented - not used
 
 	this.init();
 };
@@ -69,11 +69,11 @@ var AppModel = function (){
 AppModel.prototype = {
 
 	init: function (fps=60) {
-		setInterval(() => {window.requestAnimationFrame(this.update.bind(this));}, 1000/fps) ; 	
-		 
+		//setInterval(() => {window.requestAnimationFrame(this.update.bind(this));}, 1000/fps) ; 	
+		setInterval(this.update.bind(this), 1000/fps) ;
 	},
 
-	update: function () {
+	update: function () { // UPDATE shapes' positions and spawn new shapes
 
 		this.generateShapes();
 		this.updateShapes();
@@ -171,12 +171,10 @@ AppModel.prototype = {
 
 var AppView = function (model) {
     this.model = model;
-    
-	//this.shapeGraphics = [];
 	this.shapeCountLabel = document.getElementById("shapeCount-label");
 	this.shapesArray = [];
 
-	this.graphicShapeSpawnEvent = new MyEvent(this);
+	this.graphicShapeSpawnEvent = new MyEvent(this); // Custom Event for indirect communication with subscribers (controller(s))
 
     this.init();
 };
@@ -199,10 +197,11 @@ AppView.prototype = {
     update: function () {
     	
     	this.updateShapeGraphics();
-
-   		this.shapeCountLabel.innerHTML = "Shapes onstage: " + this.shapesArray.length;
+    	this.updateShapeCount();
+   		
     },
 
+    // Update graphics' positions to match model
     updateShapeGraphics: function () {
     	for (var i = 0; i < this.shapesArray.length; i++) {
     		if(this.shapesArray[i].shapeData.flaggedForRemoval){
@@ -215,6 +214,12 @@ AppView.prototype = {
     	}
     },
 
+
+    updateShapeCount: function () {
+    	this.shapeCountLabel.innerHTML = "Shapes onstage: " + this.shapesArray.length;
+    },
+
+    //Create graphic representation of a shape from model's data 
     shapeSpawn: function(model, shapeData){
     	var newShape = new PIXI.Graphics();
 		newShape.beginFill(shapeData.color);
@@ -257,8 +262,12 @@ AppView.prototype = {
 		}
 		shapeGraphics.lineTo(shapeData.points[0].x,shapeData.points[0].y); 		// last is the same as first for closed loop
 
-
 		//graphics.drawRect(0, 0, 100, 100);
+
+		/*
+		graphics.moveTo(210,300);
+		graphics.quadraticCurveTo(600, 0, 480,100);
+		graphics.lineTo(210,300);*/
 	},
 
 	removeShapeAt: function(index){
