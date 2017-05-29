@@ -1,176 +1,389 @@
 PIXI.utils.sayHello();
 
-var app = new PIXI.Application(800, 600, { antialias: true, transparent: true , forceCanvas:true});
-var shapesArray = [];
-var gravityInput;
-var generationSpeedInput;
-var shapeCountLabel;
-var gravity = 0.5;
-var shapesPerSec = 10;
-var shapeInterval = 100;
-var removedShapeFrame = false;
-var lastShapeSpawn = Date.now();
 
-window.onload = setup;
-app.ticker.add(update);
+/*
+	MODEL simulates world and stores it's data
+	VIEW shows graphical data for world, stored in MODEL
+	CONTROLLER transfers data from/to MODEL and VIEW, and handles user input.
+*/
 
-//------------------------------------------------------------------------------------------------------
-// WARNING: NOT MVC for now.
-//------------------------------------------------------------------------------------------------------
-// Updates
+//--------------------------------------------------------------------------------------
+//                                                                                  	Basic shape data structure
+//--------------------------------------------------------------------------------------
 
-function update(){	
+var ShapeObject = function (){
+	this.x = 0;
+	this.y = 0;
+	this.dy = 0;
+	this.shapeType = 1;
+	this.points = [];
+	this.color = 0xFFFFFF;
+	this.linethickness = 1;
+	this.lineColor = 0x000000;
+	this.flaggedForRemoval=false;
+};
 
-	generateShapes();
-	updateShapes() ;
-	
-   shapeCountLabel.innerHTML = "Shapes onstage: " + shapesArray.length;
-}
+//--------------------------------------------------------------------------------------
+//                                                                                  	Custom Observer
+//--------------------------------------------------------------------------------------
 
-function generateShapes(){
-	var now = Date.now();
-    while(lastShapeSpawn < now){ // compare last shape generation timestamp to current time, add a shape along with interval, repeat until the demand is satisfied.
-    	addShape();
-    	lastShapeSpawn += shapeInterval;
+
+var MyEvent = function (sender) {
+    this._sender = sender;
+    this._listeners = [];
+};
+
+MyEvent.prototype = {
+
+    attach: function (listener) {
+        this._listeners.push(listener);
+    },
+
+    notify: function (args) {
+        for (var i = 0; i < this._listeners.length; i += 1) {
+            this._listeners[i](this._sender, args);
+        }
     }
-}
+
+};
+
+
+//--------------------------------------------------------------------------------------
+//                                                                                  	MODEL
+//--------------------------------------------------------------------------------------
+
+var AppModel = function (){
+	this.gravity = 0.5;
+	this.shapesPerSec = 10;
+	this.shapeInterval = 100;
+	this.removedShapeFrame = false;
+	this.shapeObjects = [];
+	this.lastShapeSpawn = Date.now();
+
+	this.shapeSpawnEvent = new MyEvent(this);
+	this.shapeRemoveEvent = new MyEvent(this);
+
+	this.init();
+};
+
+AppModel.prototype = {
+
+	init: function (fps=60) {
+		setInterval(() => {window.requestAnimationFrame(this.update.bind(this));}, 1000/fps) ; 	
+		 
+	},
+
+	update: function () {
+
+		this.generateShapes();
+		this.updateShapes();
+	},
+
+	generateShapes: function(){
+		var now = Date.now();
+	    while(this.lastShapeSpawn < now){ // compare last shape generation timestamp to current time, add a shape along with interval, repeat until the demand is satisfied.
+	    	this.addShape();
+	    	this.lastShapeSpawn += this.shapeInterval;
+	    }
+	},
 
 
 
-function updateShapes() {
-	for(var i=0;i<shapesArray.length;i++){
-		shapesArray[i].dy += gravity; 			// increase the falling speed due to gravity
-		shapesArray[i].y += shapesArray[i].dy;	// change position
+	 updateShapes: function() {
+		for(var i=0;i<this.shapeObjects.length;i++){
+			this.shapeObjects[i].dy += this.gravity/10; 			// increase the falling speed due to gravity
+			this.shapeObjects[i].y += this.shapeObjects[i].dy;	// change position
 
-		if(shapesArray[i].y > 800){   			// remove the shape if it's below screen
-			app.stage.removeChild(shapesArray[i]);
-			shapesArray.splice(i,1);
-			removeShape(shapesArray[i],i);
-			i--;
+			if(this.shapeObjects[i].y > 800){   			// remove the shape if it's below screen
+				this.removeShape(this.shapeObjects[i],i);
+				i--;
+			}
 		}
-	}
-}
+	},
 
+	addShape: function(coords=null){
+		var newShape = new ShapeObject();
 
-function updateGravity(){
-	gravity = parseFloat(gravityInput.value);
-}
+		newShape.color = Math.random() * 0xFFFFFF;
+		newShape.linethickness = Math.random() *10;
+		newShape.lineColor = Math.random() * 0xFFFFFF;
+		this.getRandomShape(newShape);
+		
 
-function updateGenerationSpeed(){
-	shapesPerSec = parseInt(generationSpeedInput.value);
-	if(shapesPerSec != shapesPerSec){
-		return; // shapesPerSec isNaN 
-	}
-	shapeInterval = 1000/shapesPerSec;
-}
+		if(coords == null){
+			newShape.x = Math.random()*600;
+			newShape.y = -100 + Math.random()*-200;
+		} else {
+			newShape.x = coords.x;
+			newShape.y = coords.y-50;
+		}
+		
+		newShape.dy = 0;
+		this.shapeObjects.push(newShape);
+		this.shapeSpawnEvent.notify(newShape);
+		//console.log("MODEL: shape created");
+	},
 
-//------------------------------------------------------------------------------------------------------
-// Setup
+	getRandomShape: function(shape){
+		shape.type = Math.round(3+Math.random()*6); // Shape type (number of points), 8 - circle, 9 - ellipse
+		var positionsX = [];
+		var positionsY = [];
 
-function setup(){
-	console.log("Main setup...");
-	gravityInput = document.getElementById("gravity-input");
-	generationSpeedInput = document.getElementById("generationSpeed-input");
-	shapeCountLabel = document.getElementById("shapeCount-label");
+		if(shape.type == 8){ 						// draw circle
+			shape.radius = Math.random()*150;
+			return;
+		} else if (shape.type == 9){ 				// draw an ellipase
+			shape.radius = Math.random()*150;
+			shape.radius2 = Math.random()*150;
+			return;
+		}
 
-	
-	gravityInput.oninput = updateGravity;
-	generationSpeedInput.oninput = updateGenerationSpeed;
-
-	document.getElementById('display').appendChild(app.view);
-
-	// Separate listener for getting coordinates of click if it happened on transparent part of canvas (stage doesn't receive pointer events whick happened on a transparent portion of canvas, however we rely on it's transparency for area calculations)
-	document.getElementById('display').addEventListener("click", getClickPosition, false); 
-
-	console.log("Stage parent is: " + app.stage.parent);
-
-	//app.ticker.add(update);
-
-}
-
-function getClickPosition(e) {
-	if(removedShapeFrame){ // We have two even listeners: one from pixijs and one on DOM, stopPropagation from one doesn't stop the other.
-		removedShapeFrame = false;
-		return;
-	}
-
-    var xPosition = e.clientX;
-    var yPosition = e.clientY;
-    console.log("Click: " + xPosition + "," + yPosition);
-    addShape({x: xPosition, y: yPosition});
-}
+		for (var i = 0; i < shape.type; i++) {		// check number of sides
+			shape.points[i] = {x:Math.random()*150,y:Math.random()*150};
+		}
+	},
 
 
 
-//------------------------------------------------------------------------------------------------------
-// Shapes
+	removeShape: function(shape, inputIndex = -1){ // accept index as parameter to avoid doing .indexOf
+		
+		var index;
+		if(inputIndex == -1){
+			index = this.shapeObjects.indexOf(shape);
+		} else {
+			index = inputIndex;
+		}
+		shape.flaggedForRemoval = true;
 
-function addShape(coords=null){
-	var newShape = new PIXI.Graphics();
-	newShape.beginFill(Math.random() * 0xFFFFFF);
-	newShape.lineStyle(Math.random() *10, Math.random() * 0xFFFFFF, 1);
-	getRandomShape(newShape);
-	
-	newShape.endFill();
-
-	if(coords == null){
-		newShape.x = Math.random()*600;
-		newShape.y = -50 + Math.random()*-200;
-	} else {
-		newShape.x = coords.x;
-		newShape.y = coords.y-50;
-	}
-	
-	newShape.dy = 0;
-	newShape.on('pointerdown', (e) => {removeShape(e.target); e.stopPropagation(); removedShapeFrame=true;});
-	newShape.interactive = true;
-
-	app.stage.addChild(newShape);
-	shapesArray.push(newShape);
-}
-
-function getRandomShape(graphics){
-	var rand = Math.round(3+Math.random()*6); // Shape type (number of points), 8 - circle, 9 - ellipse
-	var positionsX = [];
-	var positionsY = [];
-
-	if(rand == 8){ 										// draw circle
-		graphics.drawCircle( 0, 0,Math.random()*150);
-		return;
-	} else if (rand == 9){ 								// draw an ellipase
-		graphics.drawEllipse(0,0,Math.random()*150,Math.random()*150);
-		return;
+		this.shapeObjects.splice(index,1);
+		//console.log("MODEL: shape removed");
 	}
 
-	while(positionsX.length < 6){ // populating random points arrays
-		positionsX.push(Math.random()*150);
-		positionsY.push(Math.random()*150);
+};
+
+
+
+
+//--------------------------------------------------------------------------------------
+//                                                                                  	VIEW
+//--------------------------------------------------------------------------------------
+
+
+var AppView = function (model) {
+    this.model = model;
+    
+	//this.shapeGraphics = [];
+	this.shapeCountLabel = document.getElementById("shapeCount-label");
+	this.shapesArray = [];
+
+	this.graphicShapeSpawnEvent = new MyEvent(this);
+
+    this.init();
+};
+
+AppView.prototype = {
+
+    init: function () {
+    	this.app = new PIXI.Application(800, 600, { antialias: true, transparent: true , forceCanvas:true});
+    	document.getElementById('display').appendChild(this.app.view);
+    	this.app.ticker.add(this.update.bind(this));
+
+    	this.shapeSpawnEventHandler = this.shapeSpawn.bind(this);
+    	this.shapeRemoveEventHandler = this.shapeRemove.bind(this);
+
+    	this.model.shapeSpawnEvent.attach(this.shapeSpawnEventHandler);
+    	this.model.shapeRemoveEvent.attach(this.shapeRemoveEventHandler);
+
+    },
+
+    update: function () {
+    	
+    	this.updateShapeGraphics();
+
+   		this.shapeCountLabel.innerHTML = "Shapes onstage: " + this.shapesArray.length;
+    },
+
+    updateShapeGraphics: function () {
+    	for (var i = 0; i < this.shapesArray.length; i++) {
+    		if(this.shapesArray[i].shapeData.flaggedForRemoval){
+    			this.removeShapeAt(i);
+    			i--;
+    			continue;
+    		}
+    		this.shapesArray[i].x = this.shapesArray[i].shapeData.x;
+    		this.shapesArray[i].y = this.shapesArray[i].shapeData.y;
+    	}
+    },
+
+    shapeSpawn: function(model, shapeData){
+    	var newShape = new PIXI.Graphics();
+		newShape.beginFill(shapeData.color);
+		newShape.lineStyle(shapeData.linethickness, shapeData.lineColor, 1);
+		this.getShapeType(newShape, shapeData);
+		
+		newShape.endFill();
+
+		newShape.x = shapeData.x;
+		newShape.y = shapeData.y;
+
+		
+		newShape.dy = 0;
+		//newShape.on('pointerdown', (e) => {removeShape(e.target); e.stopPropagation(); removedShapeFrame=true;});
+		newShape.interactive = true;
+
+		newShape.shapeData = shapeData;
+		this.app.stage.addChild(newShape);
+		this.shapesArray.push(newShape);
+
+		this.graphicShapeSpawnEvent.notify(newShape); // Notify subscribers (controller) that the View created a new shape graphics object (so subscribers can add a listener to it if needed)
+
+    	//console.log("VIEW: Shape created");
+    },
+
+    getShapeType: function(shapeGraphics, shapeData){
+		var type = shapeData.type;
+
+		if(type == 8){ 										// draw circle
+			shapeGraphics.drawCircle( 0, 0,shapeData.radius);
+			return;
+		} else if (type == 9){ 								// draw an ellipase
+			shapeGraphics.drawEllipse(0,0,shapeData.radius,shapeData.radius2);
+			return;
+		}
+
+		shapeGraphics.moveTo(shapeData.points[0].x,shapeData.points[0].y); 		// first position
+		for (var i = 1; i < shapeData.points.length; i++) {					// check number of sides
+			shapeGraphics.lineTo(shapeData.points[i].x,shapeData.points[i].y); 	// drawing jagged lines using random coordinates, 
+		}
+		shapeGraphics.lineTo(shapeData.points[0].x,shapeData.points[0].y); 		// last is the same as first for closed loop
+
+
+		//graphics.drawRect(0, 0, 100, 100);
+	},
+
+	removeShapeAt: function(index){
+		this.shapesArray[index].shapeData = null;
+		this.app.stage.removeChild(this.shapesArray[index]);
+		this.shapesArray[index].removeAllListeners();
+		this.shapesArray.splice(index,1);
+	},
+
+    shapeRemove: function(model, shape){
+    	//console.log("VIEW: Shape removed");
+
+    	//We can use this function, but setting a flag and reading it in the same for-loop as the coordinates update is faster.
+    }
+
+
+};
+
+
+//--------------------------------------------------------------------------------------
+//                                                                                  	CONTROLLER
+//--------------------------------------------------------------------------------------
+
+
+var AppController = function (model, view) {
+    this.model = model;
+    this.view = view;
+    this.removedShapeFrame = false;
+
+    this.init();
+};
+
+
+AppController.prototype ={
+
+	init: function () {
+		this.gravityInput = document.getElementById("gravity-input");
+		this.generationSpeedInput = document.getElementById("generationSpeed-input");
+		this.gravityInput.addEventListener("input", this.updateGravity);
+		this.generationSpeedInput.addEventListener("input", this.updateGenerationSpeed);
+		document.getElementById('display').addEventListener("click", (e) => {this.getClickPosition(e,this);}, false); 
+		document.getElementById('gravity-').addEventListener("click", (e) => {this.buttonsHandler(e,this);}, false); 
+		document.getElementById('gravity+').addEventListener("click", (e) => {this.buttonsHandler(e,this);}, false); 
+		document.getElementById('genSpeed-').addEventListener("click", (e) => {this.buttonsHandler(e,this);}, false); 
+		document.getElementById('genSpeed+').addEventListener("click", (e) => {this.buttonsHandler(e,this);}, false); 
+
+		this.graphicShapeSpawnEventHandler = this.shapeSpawnInteractivity.bind(this);
+
+    	this.view.graphicShapeSpawnEvent.attach(this.graphicShapeSpawnEventHandler);
+    },
+
+    shapeSpawnInteractivity: function(view,shapeGraphic){
+
+		shapeGraphic.on('pointerdown', (e) => {this.removeShape(e.target); e.stopPropagation(); this.removedShapeFrame=true;});
+    },
+
+    removeShape: function(shape){
+    	this.model.removeShape(shape.shapeData);
+
+	},
+
+    buttonsHandler: function(e,that){
+    	switch (e.target.id){
+    		case "gravity-":
+    			that.updateGravity(-0.1);
+			    break;
+			case "gravity+":
+				that.updateGravity(0.1);
+			    break;
+			case "genSpeed-":
+				that.updateGenerationSpeed(-1);
+			    break;
+			case "genSpeed+":
+				that.updateGenerationSpeed(1);
+			    break;
+
+    	}
+    },
+
+    getClickPosition: function(e,that) {
+		if(this.removedShapeFrame){ // We have two even listeners: one from pixijs and one on DOM, stopPropagation from one doesn't stop the other.
+			this.removedShapeFrame = false;
+			return;
+		}
+
+	    var xPosition = e.clientX;
+	    var yPosition = e.clientY;
+	    console.log("Click: " + xPosition + "," + yPosition);
+	    that.model.addShape({x: xPosition, y: yPosition-50});
+	},
+
+	updateGravity: function(add=0){ // 
+		if(add != 0){
+			this.gravityInput.value = this.model.gravity = parseFloat(this.gravityInput.value) + add;
+		} else {
+			this.model.gravity = parseFloat(this.gravityInput.value);
+		}
+		
+	},
+
+	updateGenerationSpeed: function(add=0){
+		var shapesPerSec = parseInt(this.generationSpeedInput.value);
+		if(shapesPerSec != shapesPerSec){
+			return; // shapesPerSec isNaN 
+		}
+		if(add != 0){
+			shapesPerSec += add;
+			this.generationSpeedInput.value = shapesPerSec;
+		}
+
+		this.model.shapesPerSec = shapesPerSec;
+		this.model.shapeInterval = 1000/shapesPerSec;
 	}
 
-	graphics.moveTo(positionsX[0],positionsY[0]); 		// first position
-	for (var i = 1; i < rand; i++) {					// check number of sides
-		graphics.lineTo(positionsX[i],positionsY[i]); 	// drawing jagged lines using random coordinates, 
-	}
-	graphics.lineTo(positionsX[0], positionsY[0]); 		// last is the same as first for closed loop
+};
 
-
-	//graphics.drawRect(0, 0, 100, 100);
-}
+//--------------------------------------------------------------------------------------
+//                                                                                  	ENTRY POINT
+//--------------------------------------------------------------------------------------
 
 
 
-function removeShape(shape, inputIndex = -1){ // accept index as parameter to avoid doing .indexOf
-	console.log("removing shape");
-	var index;
-	if(inputIndex == -1){
-		index = shapesArray.indexOf(shape);
-	} else {
-		index = inputIndex;
-	}
-
-	app.stage.removeChild(shapesArray[index]);
-	shapesArray[index].removeAllListeners();
-	shapesArray.splice(index,1);
-}
-
+(function () {
+     var model = new AppModel(),
+         view = new AppView(model),
+         controller = new AppController(model, view);
+ }());
 
